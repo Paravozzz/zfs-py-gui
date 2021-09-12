@@ -1,9 +1,9 @@
 import npyscreen
 
-import constants as c
-import forms as f
-import shell as s
-import enums as e
+import modules.constants as c
+import modules.forms as f
+import modules.shell as s
+import modules.enums as e
 
 #WIDGETS
 class FormSwitchMenu(npyscreen.MultiLineAction):

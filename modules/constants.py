@@ -1,11 +1,10 @@
 ##Name of App 
 APP_NAME = "ZFS Py GUI"
 
-##Form Modal
-FORM_ID_MODAL_OK = "FORM_MODAL"
+##Form Dialog Ok
+FORM_ID_DIALOG_OK = "FORM_DIALOG_OK"
 
-##Form Popup 
-FORM_ID_POPUP_OK = "FORM_POPUP"
+
 
 ##Form Create Pool
 FORM_ID_CREATE_POOL = "FORM_CREATE_POOL"
@@ -33,7 +32,7 @@ FORM_MENU_MANAGE_POOLS = {
     },
     "Back":{ 
         "Action":"FormSwitch",
-        "Arguments": ["Previous"]
+        "Arguments": ["MAIN"]
     }
 }
 
@@ -42,16 +41,16 @@ FORM_ID_POOL_INFO = "POOL_INFO"
 FORM_TITLE_POOL_INFO = "Pools information"
 FORM_MENU_POOL_INFO = {
     "Pool health":{
-        "Action":"CommandModal",
-        "Arguments":["zpool", "get", "health", "-p"] 
+        "Action":"ShowCommandResult",
+        "Arguments":["zpool", "status", "-x", "-p"] 
     },
     "Pool status":{
-        "Action":"CommandModal",
+        "Action":"ShowCommandResult",
         "Arguments":["zpool", "status", "-p"] 
     },
     "Back":{ 
         "Action":"FormSwitch",
-        "Arguments": ["Previous"]
+        "Arguments": ["MAIN"]
     }
 }
 

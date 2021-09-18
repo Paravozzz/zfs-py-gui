@@ -1,5 +1,6 @@
 import enum
 
+
 class ColorsEnum(enum.Enum):
     DEFAULT = 1
     FORMDEFAULT = 2

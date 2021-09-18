@@ -53,8 +53,11 @@ class FormCreatePool(npy.FormBaseNew):
         addOkAndCancel(self, "Create", "Cancel", self.createPool, app.switchFormPrevious)
        
     def createPool(self):
-        command:str = "zpool create "
-        command += str(self.nameWdgt.value)
+        command:str = "zpool create"
+        if self.forceCeckWdgt == True:
+             command += " -f"
+        command += " -m " + str(self.mountPathWdgt.value)
+        command += " " + str(self.nameWdgt.value)
         poolType:str = None
         if len(self.slectPoolTypeWdgt.value)>0: 
             poolType = self.slectPoolTypeWdgt.values[self.slectPoolTypeWdgt.value[0]]
@@ -63,49 +66,87 @@ class FormCreatePool(npy.FormBaseNew):
         if len(self.selectDisksWdgt.value)>0:
             for val_pos in self.selectDisksWdgt.value:
                 command += " " + self.selectDisksWdgt.values[val_pos]
-        showCommandConfirm(self, [command], nextFormId=c.FORM_ID_MANAGE_POOLS)
+        app = getApp(self)
+        showCommandConfirm(self, [command], "Do you want to create pool?", afterCommanExecutionFunction=lambda formId=c.FORM_ID_MANAGE_POOLS: app.switchForm(formId))
         
     def beforeEditing(self):
         self.selectDisksWdgt.values = sf.getHDDs() 
 
-class ActionFormMinimalMy(npy.ActionFormMinimal):
+class FormOK(npy.ActionFormMinimal):
     formId = None
-    nextFormId = None 
+    okFunction = None 
     def on_ok(self):
-        if self.nextFormId is None:
+        if self.okFunction is None:
             self.parentApp.switchFormPrevious()
         else:
-            self.parentApp.switchForm(self.nextFormId)
+            self.okFunction()
+
+class FormOkCancel(npy.ActionFormV2):
+    formId = None
+    okFunction = None
+    cancelFunction = None
+    def on_ok(self):
+        if self.okFunction is None:
+            self.parentApp.switchFormPrevious()
+        else:
+            self.okFunction()
+    def on_cancel(self):
+        if self.cancelFunction is None:
+            self.parentApp.switchFormPrevious()
+        else:
+            self.cancelFunction()
             
 ##FUNCTIONS
-def createDialogOk(self, fullscreen:bool = False, nextFormId:str = None, title:str = ""):
+def createDialogOk(self, fullscreen:bool = False, okFunction = None, title:str = ""):
     formId = c.FORM_ID_DIALOG_OK
     app = getApp(self)
     if fullscreen == False:
-        frm = app.addForm(formId, ActionFormMinimalMy, lines=12, columns=60)
+        frm = app.addForm(formId, FormOK, lines=12, columns=60)
         frm.center_on_display()
     else:
-        frm = app.addForm(formId, ActionFormMinimalMy)
+        frm = app.addForm(formId, FormOK)
     if title != "" :
         frm.name = self.name + " -> " + title
     else:
         frm.name = self.name
     frm.formId = formId
-    frm.nextFormId = nextFormId
+    frm.okFunction = okFunction
+    return frm
+
+def createDialogOkCancel(self, fullscreen:bool = False, okFunction = None, cancelFunction = None, title:str = ""):
+    formId = c.FORM_ID_DIALOG_OK_CANCEL
+    app = getApp(self)
+    if fullscreen == False:
+        frm = app.addForm(formId, FormOkCancel, lines=12, columns=60)
+        frm.center_on_display()
+    else:
+        frm = app.addForm(formId, FormOkCancel)
+    if title != "" :
+        frm.name = self.name + " -> " + title
+    else:
+        frm.name = self.name
+    frm.formId = formId
+    frm.okFunction = okFunction
+    frm.cancelFunction = cancelFunction
     return frm
 
 #Shows modal dialog and then return to previous window
-def showDialogOk(self, title:str, message:str, colorLabel:str = "DEFAULT", fullscreen:bool = False, nextFormId:str = None):
-    frm = createDialogOk(self, fullscreen, nextFormId) 
+def showDialogOk(self, title:str, message:str, colorLabel:str = "DEFAULT", fullscreen:bool = False, okFunction = None):
+    frm = createDialogOk(self, fullscreen=fullscreen, okFunction=okFunction) 
     frm.add(npy.TitleFixedText, name=title, editable=False, labelColor=colorLabel)
     frm.add(npy.FixedText, value=message, editable=False)
-    frm.nextFormId = nextFormId
+    frm.parentApp.switchForm(frm.formId)
+    
+def showDialogOkCancel(self, title:str, message:str, colorLabel:str = "DEFAULT", fullscreen:bool = False, okFunction = None, cancelFunction = None):
+    frm = createDialogOkCancel(self, fullscreen=fullscreen, okFunction=okFunction, cancelFunction=cancelFunction) 
+    frm.add(npy.TitleFixedText, name=title, editable=False, labelColor=colorLabel)
+    frm.add(npy.FixedText, value=message, editable=False)
     frm.parentApp.switchForm(frm.formId)
     
 #Shows modal dialog with stdout or stderror of executed command
-def showCommandResult(self, command:list, nextFormId:str = None, title:str = ""):
+def showCommandResult(self, command:list, okFunction:str = None, title:str = ""):
     command_str:str = ' '.join(map(str, command)) 
-    frm = createDialogOk(self, True, nextFormId, title)
+    frm = createDialogOk(self, fullscreen=True, okFunction=okFunction, title=title)
     frm.add(npy.TitleFixedText, name="Executed:", value=command_str, editable=False)
     shell_stdout, shell_stderror = s.execute(command)
     title = None
@@ -120,15 +161,13 @@ def showCommandResult(self, command:list, nextFormId:str = None, title:str = "")
         text = shell_stdout
     frm.add(npy.TitleFixedText, name = title, labelColor = color, editable = False)
     text = text.split("\n")
-    frm.add(npy.Pager, values=text, editable=True)
-    
+    frm.add(npy.Pager, values=text, editable=False)
     frm.parentApp.switchForm(frm.formId)
     
 #Shows modal dialog with command confirmation    
-def showCommandConfirm(self, command:list, message:str = "Are you sure?", nextFormId:str = None):
-    frm = createDialogOk(self, False, nextFormId)
+def showCommandConfirm(self, command:list, message:str = "Are you sure?", afterCommanExecutionFunction = None):
+    frm = createDialogOkCancel(self, fullscreen=False, okFunction = lambda self=self, command=command, okFunction=afterCommanExecutionFunction: showCommandResult(self, command, okFunction), cancelFunction=None)
     frm.add(npy.FixedText, value=message, editable = False)
-    addOkAndCancel(frm, okFunction = lambda self=self, command=command, nextFormId=nextFormId: showCommandResult(self, command, nextFormId))
     frm.parentApp.switchForm(frm.formId)
 
 #Put confirm and cancel button to form
